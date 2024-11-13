@@ -16,14 +16,10 @@ cp .env.example .env
 
 npm install
 
-```
-
-## Additional DB Setup
-*  Instead using the supabase db and want to setup a new postgres instance run following command:
-
-```
 npx prisma migrate dev
+
 ```
+
 
 ## Development
 
