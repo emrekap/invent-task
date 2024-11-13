@@ -8,7 +8,6 @@ export function notFound(req: Request, res: Response, next: NextFunction) {
 }
 
 export function errorHandler(err: Error, _: Request, res: Response<ErrorResponse>) {
-  console.log('errorHandler: ', err);
   const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
   res.status(statusCode);
   res.json({
