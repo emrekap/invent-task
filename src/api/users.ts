@@ -12,7 +12,7 @@ const router = express.Router();
  * @returns all users
  */
 router.get('/', async (_req, res) => {
-  const users = await prismaClient.user.findMany({ select: { id: true, name: true } });
+  const users = await prismaClient.user.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
   res.json(users);
 });
 
@@ -21,35 +21,44 @@ router.get('/', async (_req, res) => {
  * @GET /users/:id
  * @returns user with given id
  */
-router.get('/:id', async (req, res) => {
-  const user = await prismaClient.user.findFirst({
-    where: { id: +req.params.id },
-    include: {
-      borrowHistory: {
-        select: {
-          score: true,
-          book: { select: { name: true },
+router.get('/:id', validateRequest({
+  params: z.object({
+    id: z.coerce.number(),
+  }),
+}), async (req, res, next) => {
+  try {
+    const user = await prismaClient.user.findFirst({
+      where: { id: +req.params.id },
+      include: {
+        borrowHistory: {
+          select: {
+            score: true,
+            book: { select: { name: true },
+            },
           },
         },
       },
-    },
-  });
-  if (!user) {
-    return res.status(StatusCodes.NOT_FOUND).json({ message: 'User doest not exists' });
+    });
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({ message: 'User does not exists' });
+    }
+
+    const present = user.borrowHistory.filter(h => h.score === -1).map(h => ({ name: h.book.name }));
+    const past = user.borrowHistory.filter(h => h.score > -1).map(h => ({ name: h.book.name, userScore: h.score }));
+
+
+    res.json({
+      id: user.id,
+      name: user.name,
+      books: {
+        past,
+        present,
+      },
+    });
+
+  } catch (error) {
+    next(error);
   }
-
-  const present = user.borrowHistory.filter(h => h.score === -1).map(h => ({ name: h.book.name }));
-  const past = user.borrowHistory.filter(h => h.score > -1).map(h => ({ name: h.book.name, userScore: h.score }));
-
-
-  res.json({
-    id: user.id,
-    name: user.name,
-    books: {
-      past,
-      present,
-    },
-  });
 
 });
 
@@ -61,7 +70,7 @@ router.post('/',
   validateRequest({ body: z.object({
     name: z.string(),
   }) }),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       await prismaClient.user.create({
         data: { name: req.body.name },
@@ -69,7 +78,7 @@ router.post('/',
       res.status(StatusCodes.CREATED).end();
     } catch (error) {
       console.log(error);
-      throw error;
+      next(error);
     }
   });
 
@@ -85,7 +94,7 @@ router.post('/:userId/borrow/:bookId',
       bookId: z.coerce.number(),
     }),
   }),
-  async (req, res) => {
+  async (req, res, next) => {
     console.log('req.params: ', req.params);
     const { userId, bookId } = req.params;
 
@@ -108,7 +117,7 @@ router.post('/:userId/borrow/:bookId',
       res.status(StatusCodes.NO_CONTENT).end();
     } catch (error) {
       console.log(error);
-      throw error;
+      next(error);
     }
   });
 
@@ -123,10 +132,10 @@ router.post('/:userId/return/:bookId',
       bookId: z.coerce.number(),
     }),
     body: z.object({
-      score: z.number(),
+      score: z.number().min(0).max(100),
     }),
   }),
-  async (req, res) => {
+  async (req, res, next) => {
     console.log('req.params: ', req.params);
     const { userId, bookId } = req.params;
     const { score } = req.body;
@@ -152,7 +161,7 @@ router.post('/:userId/return/:bookId',
       res.status(StatusCodes.NO_CONTENT).end();
     } catch (error) {
       console.log(error);
-      throw error;
+      next(error);
     }
   });
 

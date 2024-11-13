@@ -14,7 +14,7 @@
 ```
 cp .env.example .env
 
-npm install
+npm ci
 
 npx prisma migrate dev
 
@@ -29,6 +29,7 @@ npm run dev
 
 
 ## !!RESET TEST DB!!
+* Drops all tables, and applies all migration files.
 ```
 npx prisma migrate reset
 ```
